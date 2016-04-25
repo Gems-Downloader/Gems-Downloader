@@ -1,0 +1,23 @@
+{
+  "name": "gem-index",
+  "version": "1.0.0",
+  "description": "Creates an index for all of rubygems.org gems",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "async": "^2.0.0-rc.3",
+    "cheerio": "^0.20.0",
+    "crypto": "0.0.3",
+    "mkpath": "^1.0.0",
+    "moment": "^2.13.0",
+    "mongodb": "^2.1.16",
+    "pg": "^4.5.3",
+    "progress": "^1.1.8",
+    "sleep": "^3.0.1",
+    "underscore": "^1.8.3"
+  }
+}
