@@ -1,5 +1,4 @@
 const ProgressBar = require('progress');
-const sleep = require('sleep');
 const pg = require('pg');
 const fs = require('fs');
 const path = require('path');
@@ -8,25 +7,25 @@ const async = require('async');
 const exec = require('child_process').exec;
 const crypto = require('crypto');
 const moment = require('moment');
+const figlet = require('figlet');
+const filesize = require('filesize');
 
 // constants
-const conString = "postgres://lspyer@localhost/rubygems";
+const conString = `postgres://${process.env.USER}@localhost/rubygems`;
 
-// Function definition
-
+// functions definition
 console.reset = function () {
   return process.stdout.write('\033c');
 }
 
 var showGreeting = function () {
-  console.log(`
-  ██████╗ ██╗   ██╗██████╗ ██╗   ██╗ ██████╗ ███████╗███╗   ███╗███████╗    ██████╗  ██████╗ ██╗    ██╗███╗   ██╗██╗      ██████╗  █████╗ ██████╗ ███████╗██████╗
-  ██╔══██╗██║   ██║██╔══██╗╚██╗ ██╔╝██╔════╝ ██╔════╝████╗ ████║██╔════╝    ██╔══██╗██╔═══██╗██║    ██║████╗  ██║██║     ██╔═══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗
-  ██████╔╝██║   ██║██████╔╝ ╚████╔╝ ██║  ███╗█████╗  ██╔████╔██║███████╗    ██║  ██║██║   ██║██║ █╗ ██║██╔██╗ ██║██║     ██║   ██║███████║██║  ██║█████╗  ██████╔╝
-  ██╔══██╗██║   ██║██╔══██╗  ╚██╔╝  ██║   ██║██╔══╝  ██║╚██╔╝██║╚════██║    ██║  ██║██║   ██║██║███╗██║██║╚██╗██║██║     ██║   ██║██╔══██║██║  ██║██╔══╝  ██╔══██╗
-  ██║  ██║╚██████╔╝██████╔╝   ██║   ╚██████╔╝███████╗██║ ╚═╝ ██║███████║    ██████╔╝╚██████╔╝╚███╔███╔╝██║ ╚████║███████╗╚██████╔╝██║  ██║██████╔╝███████╗██║  ██║
-  ╚═╝  ╚═╝ ╚═════╝ ╚═════╝    ╚═╝    ╚═════╝ ╚══════╝╚═╝     ╚═╝╚══════╝    ╚═════╝  ╚═════╝  ╚══╝╚══╝ ╚═╝  ╚═══╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝
-  `);
+  console.log();
+  console.log(figlet.textSync('RubyGems downloader', {
+      font: 'ANSI Shadow',
+      horizontalLayout: 'default',
+      verticalLayout: 'default'
+  }));
+  console.log();
 }
 
 var SQLDateformatter = function(date) {
@@ -43,11 +42,10 @@ var SQLDateformatter = function(date) {
 };
 
 var queryDB = function (query, callback) {
-
   var client = new pg.Client(conString);
   client.connect((err) => {
     if (err) {
-      return console.error('ERROR Connecting to the local RubyGem DB.', err);
+      return console.error('ERROR Connecting to the local RubyGems DB.', err);
     }
 
     client.query(query, [], (err, result) => {
@@ -70,6 +68,7 @@ var queryNumberGemsToDownload = function (date, callback) {
   FROM
     public.versions
   WHERE
+    versions.indexed = 'true' and
     versions.created_at > '${SQLDateformatter(date)}';
   `
 
@@ -82,6 +81,26 @@ var queryNumberGemsToDownload = function (date, callback) {
   });
 }
 
+var querySizeOfGemsToDownload = function (date, callback) {
+  var query = `
+  SELECT
+    SUM(versions.size)
+  FROM
+    public.versions
+  WHERE
+    versions.indexed = 'true' and
+    versions.created_at > '${SQLDateformatter(date)}';
+  `
+
+  queryDB(query, (result) => {
+    if (!result) {
+      return callback(0);
+    }
+
+    callback(result.rows[0].sum);
+  });
+}
+
 var queryGemsRowsToDownload = function (date, callback) {
   var query = `
   SELECT
@@ -90,13 +109,15 @@ var queryGemsRowsToDownload = function (date, callback) {
     versions.created_at,
     versions.updated_at,
     versions.full_name,
-    versions.sha256
+    versions.sha256,
+    versions.indexed
   FROM
     public.versions,
     public.rubygems
   WHERE
-    versions.rubygem_id = rubygems.id and
-    versions.created_at > '${SQLDateformatter(date)}'
+    versions.indexed = 'true' and
+    versions.created_at > '${SQLDateformatter(date)}' and
+    versions.rubygem_id = rubygems.id
   ORDER BY created_at;
   `
   queryDB(query, (result) => {
@@ -134,9 +155,15 @@ var downloadGems = function (gemsInfo, downloadPath) {
       next();
     }
 
-    var filePath = path.join(downloadPath, `${gemInfo.full_name}.gem`);
+    // indexed === false means its yanked
+    if (!gemInfo.indexed) {
+      return finishIteration();
+    }
+
+    var filePath = path.join(downloadPath, `${gemInfo.name}-${gemInfo.number}.gem`);
     if (fileExists(filePath)) {
       return calcSHA256CheckSum(filePath, (calculatedSha) => {
+        var SHA256fromGemInfo = calcSHA256FromGemInfo(gemInfo);
         if (calculatedSha === calcSHA256FromGemInfo(gemInfo))
         {
           return finishIteration();
@@ -155,7 +182,7 @@ var execGemFetch = function (downloadPath, gemInfo, callback) {
       },
       (error, stdout, stderr) => {
         if (error) {
-          console.log(`An ERROR accured while downloading ${gemsInfo.full_name}`);
+          console.log(`An ERROR accured while downloading ${gemInfo.full_name}`);
           console.log(error);
         }
         return callback();
@@ -236,13 +263,13 @@ var queryDate;
 var downloadFolder = 'downloads';
 
 try {
-  for (var i=2; i<process.argv.length; i=i+2) {
+  for (var i = 2; i < process.argv.length; i = i + 2) {
     switch(process.argv[i]) {
       case '-d':
-        queryDate = tryParseDate(process.argv[i+1])
+        queryDate = tryParseDate(process.argv[i + 1])
         break;
       case '-o':
-        downloadFolder = process.argv[i+1];
+        downloadFolder = process.argv[i + 1];
         break;
       default:
         printArgumentsError();
@@ -260,9 +287,11 @@ var dateString = queryDate ? queryDate.toLocaleDateString() : 'the begining of t
 
 console.log(`Querying Gems to download from RubyGems (from ${dateString}).`);
 queryNumberGemsToDownload(queryDate, (count) => {
-  queryGemsRowsToDownload(queryDate, (gemsInfo) => {
-    console.log(`Done! found ${count} new Gems to download (from ${dateString}).`);
-    downloadGems(gemsInfo, downloadFolder);
-    saveJSON(gemsInfo, downloadFolder);
-  })
+  querySizeOfGemsToDownload(queryDate, (size) => {
+    queryGemsRowsToDownload(queryDate, (gemsInfo) => {
+      console.log(`Done! found ${count} (${filesize(size)}) Gems to download from ${dateString}.`);
+      downloadGems(gemsInfo, downloadFolder);
+      saveJSON(gemsInfo, downloadFolder);
+    });
+  });
 });
