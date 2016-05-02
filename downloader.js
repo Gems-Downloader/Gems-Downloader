@@ -9,6 +9,9 @@ const crypto = require('crypto');
 const moment = require('moment');
 const figlet = require('figlet');
 const filesize = require('filesize');
+const os = require('os');
+
+const cpus = os.cpus();
 
 // constants
 const conString = `postgres://${process.env.USER}@localhost/rubygems`;
@@ -110,6 +113,7 @@ var queryGemsRowsToDownload = function (date, callback) {
     versions.updated_at,
     versions.full_name,
     versions.sha256,
+    versions.size,
     versions.indexed
   FROM
     public.versions,
@@ -149,7 +153,7 @@ var downloadGems = function (gemsInfo, downloadPath) {
 
   bar.tick(0);
 
-  async.forEachOfLimit(gemsInfo, 20, (gemInfo, index, next) => {
+  async.forEachOfLimit(gemsInfo, cpus.length * 2, (gemInfo, index, next) => {
     var finishIteration = function () {
       bar.tick();
       next();
