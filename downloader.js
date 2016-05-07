@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 const ProgressBar = require('progress');
 const pg = require('pg');
 const fs = require('fs');
@@ -11,9 +13,9 @@ const figlet = require('figlet');
 const filesize = require('filesize');
 const os = require('os');
 
-const cpus = os.cpus();
-
 // constants
+const cpus = os.cpus();
+const fetchCount = cpus.length * 2;
 const conString = `postgres://${process.env.USER}@localhost/rubygems`;
 
 // functions definition
@@ -133,7 +135,12 @@ var queryGemsRowsToDownload = function (date, callback) {
   });
 }
 
-var downloadGems = function (gemsInfo, downloadPath) {
+var downloadGems = function (gemsInfo, downloadPath, callback) {
+  if (!gemsInfo.length) {
+    console.log("Nothing to download...");
+    return callback();
+  }
+
   if (!downloadPath) {
     downloadPath = './';
   }
@@ -153,7 +160,7 @@ var downloadGems = function (gemsInfo, downloadPath) {
 
   bar.tick(0);
 
-  async.forEachOfLimit(gemsInfo, cpus.length * 2, (gemInfo, index, next) => {
+  async.forEachOfLimit(gemsInfo, fetchCount, (gemInfo, index, next) => {
     var finishIteration = function () {
       bar.tick();
       next();
@@ -176,7 +183,7 @@ var downloadGems = function (gemsInfo, downloadPath) {
       });
     }
     return execGemFetch(downloadPath, gemInfo, finishIteration);
-  }, () => {});
+  }, callback);
 }
 
 var execGemFetch = function (downloadPath, gemInfo, callback) {
@@ -294,8 +301,10 @@ queryNumberGemsToDownload(queryDate, (count) => {
   querySizeOfGemsToDownload(queryDate, (size) => {
     queryGemsRowsToDownload(queryDate, (gemsInfo) => {
       console.log(`Done! found ${count} (${filesize(size)}) Gems to download from ${dateString}.`);
-      downloadGems(gemsInfo, downloadFolder);
-      saveJSON(gemsInfo, downloadFolder);
+      console.log(`Starting download concurrently (${fetchCount} in parralel).`)
+      downloadGems(gemsInfo, downloadFolder, () => {
+        saveJSON(gemsInfo, downloadFolder);
+      });
     });
   });
 });

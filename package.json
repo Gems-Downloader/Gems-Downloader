@@ -2,9 +2,12 @@
   "name": "rubygems-downloader",
   "version": "1.0.0",
   "description": "Creates an index for all of rubygems.org gems",
-  "main": "index.js",
+  "main": "downloader.js",
   "author": "",
   "license": "ISC",
+  "bin": {
+    "rg_downloader": "./downloader.js"
+  },
   "dependencies": {
     "async": "^2.0.0-rc.3",
     "cheerio": "^0.20.0",
