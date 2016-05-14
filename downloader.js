@@ -16,7 +16,7 @@ const os = require('os');
 // constants
 const cpus = os.cpus();
 const fetchCount = cpus.length * 2;
-const conString = `postgres://${process.env.USER}@localhost/rubygems`;
+const dbConnectioString = `postgres://${process.env.USER}@localhost/rubygems`;
 
 // functions definition
 console.reset = function () {
@@ -47,7 +47,7 @@ var SQLDateformatter = function(date) {
 };
 
 var queryDB = function (query, callback) {
-  var client = new pg.Client(conString);
+  var client = new pg.Client(dbConnectioString);
   client.connect((err) => {
     if (err) {
       return console.error('ERROR Connecting to the local RubyGems DB.', err);
@@ -151,7 +151,8 @@ var downloadGems = function (gemsInfo, downloadPath, callback) {
     return console.error(err);
   }
 
-  var bar = new ProgressBar('downloaded :current of :total gems [:bar] :percent', {
+  var errorCount = 0;
+  var bar = new ProgressBar(`Attempted to download :current of :total gems [:bar] :percent.`, {
       complete: '=',
       incomplete: '-',
       width: 20,
@@ -161,7 +162,11 @@ var downloadGems = function (gemsInfo, downloadPath, callback) {
   bar.tick(0);
 
   async.forEachOfLimit(gemsInfo, fetchCount, (gemInfo, index, next) => {
-    var finishIteration = function () {
+    var finishIteration = function (error) {
+      if (error) {
+        errorCount++;
+        bar.fmt = `Attempted to download :current of :total gems [:bar] :percent (with ${errorCount} download errors).`
+      }
       bar.tick();
       next();
     }
@@ -192,9 +197,11 @@ var execGemFetch = function (downloadPath, gemInfo, callback) {
         encoding: 'utf8'
       },
       (error, stdout, stderr) => {
+        if (stderr) {
+          return callback(stderr);
+        }
         if (error) {
-          console.log(`An ERROR accured while downloading ${gemInfo.full_name}`);
-          console.log(error);
+          return callback(error);
         }
         return callback();
       });
@@ -301,10 +308,11 @@ queryNumberGemsToDownload(queryDate, (count) => {
   querySizeOfGemsToDownload(queryDate, (size) => {
     queryGemsRowsToDownload(queryDate, (gemsInfo) => {
       console.log(`Done! found ${count} (${filesize(size)}) Gems to download from ${dateString}.`);
+      saveJSON(gemsInfo, downloadFolder);
       console.log(`Starting download concurrently (${fetchCount} in parralel).`)
-      downloadGems(gemsInfo, downloadFolder, () => {
-        saveJSON(gemsInfo, downloadFolder);
-      });
+      downloadGems(gemsInfo, downloadFolder, () => {});
     });
   });
 });
+
+

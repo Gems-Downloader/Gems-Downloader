@@ -6,7 +6,8 @@
   "author": "",
   "license": "ISC",
   "bin": {
-    "rg_downloader": "./downloader.js"
+    "rg_downloader": "./downloader.js",
+    "rg_download_latest": "./scripts/download_latest.sh"
   },
   "dependencies": {
     "async": "^2.0.0-rc.3",
