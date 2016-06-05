@@ -7,7 +7,8 @@
   "license": "ISC",
   "bin": {
     "rg_downloader": "./downloader.js",
-    "rg_download_latest": "./scripts/download_latest.sh"
+    "rg_download_latest": "./scripts/download_latest.sh",
+    "rg_latest_manifest": "./scripts/generate_latest_manifest.sh"
   },
   "dependencies": {
     "async": "^2.0.0-rc.3",

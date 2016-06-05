@@ -271,7 +271,7 @@ var tryParseDirectory = function (arg) {
 }
 
 var printArgumentsError = function () {
-  console.log(`Usage: -o [Download Directory] -d [Date to query from dd/mm/yyyy]`);
+  console.log(`Usage: -o [Download Directory] -d [Date to query from dd/mm/yyyy] -n [use -n to generate manifest only]`);
   process.exit(-1);
 }
 
@@ -279,15 +279,23 @@ var printArgumentsError = function () {
 
 var queryDate;
 var downloadFolder = 'downloads';
+var manifestOnly = false;
 
 try {
-  for (var i = 2; i < process.argv.length; i = i + 2) {
+  var i = 2;
+  while (i < process.argv.length) {
     switch(process.argv[i]) {
       case '-d':
         queryDate = tryParseDate(process.argv[i + 1])
+        i = i + 2;
         break;
       case '-o':
         downloadFolder = process.argv[i + 1];
+        i = i + 2;
+        break;
+      case '-n':
+        manifestOnly = true;
+        i = i + 1;
         break;
       default:
         printArgumentsError();
@@ -309,8 +317,10 @@ queryNumberGemsToDownload(queryDate, (count) => {
     queryGemsRowsToDownload(queryDate, (gemsInfo) => {
       console.log(`Done! found ${count} (${filesize(size)}) Gems to download from ${dateString}.`);
       saveJSON(gemsInfo, downloadFolder);
-      console.log(`Starting download concurrently (${fetchCount} in parralel).`)
-      downloadGems(gemsInfo, downloadFolder, () => {});
+      if (!manifestOnly) {
+        console.log(`Starting download concurrently (${fetchCount} in parralel).`)
+        downloadGems(gemsInfo, downloadFolder, () => {});
+      }
     });
   });
 });
