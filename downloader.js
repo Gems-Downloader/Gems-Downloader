@@ -218,12 +218,26 @@ var saveJSON = function (gemsInfo, savePath) {
   }
 
   var err = fs.writeFileSync(
-    path.join(savePath,'manifest.json'),
-    JSON.stringify(gemsInfo, null, 4),
+    path.join(savePath,'metadata.json'),
+    JSON.stringify({ files: gemsInfo.map(reformatJSON) }, null, 4),
     'utf8');
   if (err) {
      return console.error(err);
   }
+}
+
+var reformatJSON = function (gemInfo) {
+  var result = {};
+
+  result.name = `${gemInfo.name}-${gemInfo.number}.gem`;
+  result.extra_data = {};
+  result.extra_data.id = gemInfo.full_name;
+  result.extra_data.hash = gemInfo.sha256;
+  result.extra_data.hash_algorithm = "SHA256";
+  result.extra_data.name = gemInfo.name;
+  result.extra_data.version = gemInfo.number;
+
+  return result;
 }
 
 var calcSHA256CheckSum = function (filename, callback) {
@@ -271,7 +285,7 @@ var tryParseDirectory = function (arg) {
 }
 
 var printArgumentsError = function () {
-  console.log(`Usage: -o [Download Directory] -d [Date to query from dd/mm/yyyy] -n [use -n to generate manifest only]`);
+  console.log(`Usage: -o [Download Directory] -d [Date to query from dd/mm/yyyy] -n [use -n to generate metadata only]`);
   process.exit(-1);
 }
 
