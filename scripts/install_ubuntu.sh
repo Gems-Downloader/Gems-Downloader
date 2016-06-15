@@ -51,5 +51,6 @@ sudo apt-get -f -y install rubygems
 # install RubyGems Downloader
 git clone https://github.com/Gems-Downloader/RubyGems-Downloader.git ~/gems_downloader/RubyGems-Downloader
 cd ~/gems_downloader/RubyGems-Downloader
+npm remove -g
 npm install -g
 cd ..
