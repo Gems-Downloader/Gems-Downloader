@@ -41,12 +41,21 @@ git clone https://github.com/rubygems/rubygems.org.git ~/gems_downloader/rubygem
 ~/gems_downloader/rubygems.org/script/load-pg-dump -u $SUDO_USER -c ~/gems_downloader/RG_PG_DUMP
 rm -rf ~/gems_downloader/RG_PG_DUMP
 
+# install curl
+sudo apt-get install curl
+
 # install node.js
 curl -sL https://deb.nodesource.com/setup_4.x | sudo -E bash -
 sudo apt-get -f -y install nodejs
 
-# install rubygems
-sudo apt-get -f -y install rubygems
+# install ruby
+gpg --keyserver hkp://keys.gnupg.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3
+curl -sSL https://get.rvm.io | bash -s stable
+source ~/.rvm/scripts/rvm
+rvm requirements
+rvm install ruby
+rvm use ruby --default
+rvm rubygems current
 
 # install RubyGems Downloader
 git clone https://github.com/Gems-Downloader/RubyGems-Downloader.git ~/gems_downloader/RubyGems-Downloader
