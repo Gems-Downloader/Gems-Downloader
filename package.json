@@ -1,6 +1,6 @@
 {
   "name": "rubygems-downloader",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Creates an index for all of rubygems.org gems",
   "main": "downloader.js",
   "author": "",
